@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.JobChangeMapper">
+    
+    <resultMap id="JobChangeVOResultMap" type="com.epms.vo.JobChangeVO">
+        <id property="changeId" column="change_id"/>
+        <result property="empId" column="emp_id"/>
+        <result property="empName" column="emp_name"/>
+        <result property="changeType" column="change_type"/>
+        <result property="oldDeptName" column="old_dept_name"/>
+        <result property="newDeptName" column="new_dept_name"/>
+        <result property="oldPosName" column="old_pos_name"/>
+        <result property="newPosName" column="new_pos_name"/>
+        <result property="changeDate" column="change_date"/>
+        <result property="remarks" column="remarks"/>
+    </resultMap>
+    
+    <select id="selectAll" resultMap="JobChangeVOResultMap">
+        SELECT 
+            jc.change_id, jc.emp_id, jc.change_type,
+            jc.old_dept_name, jc.new_dept_name,
+            jc.old_pos_name, jc.new_pos_name,
+            jc.change_date, jc.remarks,
+            e.name as emp_name
+        FROM job_change jc
+        LEFT JOIN employee e ON jc.emp_id = e.emp_id
+        ORDER BY jc.change_date DESC, jc.change_id DESC
+    </select>
+    
+    <select id="selectById" resultMap="JobChangeVOResultMap">
+        SELECT 
+            jc.change_id, jc.emp_id, jc.change_type,
+            jc.old_dept_name, jc.new_dept_name,
+            jc.old_pos_name, jc.new_pos_name,
+            jc.change_date, jc.remarks,
+            e.name as emp_name
+        FROM job_change jc
+        LEFT JOIN employee e ON jc.emp_id = e.emp_id
+        WHERE jc.change_id = #{changeId}
+    </select>
+    
+    <select id="selectByEmployeeId" resultMap="JobChangeVOResultMap">
+        SELECT 
+            jc.change_id, jc.emp_id, jc.change_type,
+            jc.old_dept_name, jc.new_dept_name,
+            jc.old_pos_name, jc.new_pos_name,
+            jc.change_date, jc.remarks,
+            e.name as emp_name
+        FROM job_change jc
+        LEFT JOIN employee e ON jc.emp_id = e.emp_id
+        WHERE jc.emp_id = #{empId}
+        ORDER BY jc.change_date DESC
+    </select>
+    
+    <select id="selectByCondition" resultMap="JobChangeVOResultMap">
+        SELECT 
+            jc.change_id, jc.emp_id, jc.change_type,
+            jc.old_dept_name, jc.new_dept_name,
+            jc.old_pos_name, jc.new_pos_name,
+            jc.change_date, jc.remarks,
+            e.name as emp_name
+        FROM job_change jc
+        LEFT JOIN employee e ON jc.emp_id = e.emp_id
+        <where>
+            <if test="empId != null">
+                AND jc.emp_id = #{empId}
+            </if>
+            <if test="changeType != null and changeType != ''">
+                AND jc.change_type = #{changeType}
+            </if>
+        </where>
+        ORDER BY jc.change_date DESC, jc.change_id DESC
+    </select>
+    
+</mapper>
+

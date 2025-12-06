@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.AttendanceMapper">
+    
+    <resultMap id="AttendanceVOResultMap" type="com.epms.vo.AttendanceVO">
+        <id property="recordId" column="record_id"/>
+        <result property="empId" column="emp_id"/>
+        <result property="empName" column="emp_name"/>
+        <result property="workDate" column="work_date"/>
+        <result property="type" column="type"/>
+        <result property="hours" column="hours"/>
+        <result property="remarks" column="remarks"/>
+    </resultMap>
+    
+    <resultMap id="AttendanceMonthlyStatsVOResultMap" type="com.epms.vo.AttendanceMonthlyStatsVO">
+        <result property="empId" column="emp_id"/>
+        <result property="name" column="name"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="month" column="month"/>
+        <result property="totalRecords" column="total_records"/>
+        <result property="normalDays" column="normal_days"/>
+        <result property="lateCount" column="late_count"/>
+        <result property="earlyLeaveCount" column="early_leave_count"/>
+        <result property="absenceCount" column="absence_count"/>
+        <result property="leaveCount" column="leave_count"/>
+        <result property="businessTripCount" column="business_trip_count"/>
+        <result property="totalHours" column="total_hours"/>
+        <result property="abnormalCount" column="abnormal_count"/>
+    </resultMap>
+    
+    <!-- 查询所有考勤记录 -->
+    <select id="selectAll" resultMap="AttendanceVOResultMap">
+        SELECT 
+            a.record_id, a.emp_id, a.work_date, a.type, a.hours, a.remarks,
+            e.name as emp_name
+        FROM attendance a
+        LEFT JOIN employee e ON a.emp_id = e.emp_id
+        ORDER BY a.work_date DESC, a.record_id DESC
+    </select>
+    
+    <!-- 根据ID查询考勤 -->
+    <select id="selectById" resultMap="AttendanceVOResultMap">
+        SELECT 
+            a.record_id, a.emp_id, a.work_date, a.type, a.hours, a.remarks,
+            e.name as emp_name
+        FROM attendance a
+        LEFT JOIN employee e ON a.emp_id = e.emp_id
+        WHERE a.record_id = #{recordId}
+    </select>
+    
+    <!-- 插入考勤记录 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="recordId">
+        INSERT INTO attendance (emp_id, work_date, type, hours, remarks)
+        VALUES (#{empId}, #{workDate}, #{type}, #{hours}, #{remarks})
+    </insert>
+    
+    <!-- 更新考勤记录 -->
+    <update id="update">
+        UPDATE attendance
+        <set>
+            <if test="empId != null">emp_id = #{empId},</if>
+            <if test="workDate != null">work_date = #{workDate},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="hours != null">hours = #{hours},</if>
+            <if test="remarks != null">remarks = #{remarks},</if>
+        </set>
+        WHERE record_id = #{recordId}
+    </update>
+    
+    <!-- 删除考勤记录 -->
+    <delete id="delete">
+        DELETE FROM attendance WHERE record_id = #{recordId}
+    </delete>
+    
+    <!-- ========== 视图查询 ========== -->
+    
+    <!-- 查询月度考勤统计（使用视图 v_attendance_monthly_stats） -->
+    <select id="selectMonthlyStats" resultMap="AttendanceMonthlyStatsVOResultMap">
+        SELECT 
+            emp_id, name, dept_name, month,
+            total_records, normal_days, late_count, early_leave_count,
+            absence_count, leave_count, business_trip_count,
+            total_hours, abnormal_count
+        FROM v_attendance_monthly_stats
+        <where>
+            <if test="month != null and month != ''">
+                AND month = #{month}
+            </if>
+        </where>
+        ORDER BY emp_id
+    </select>
+    
+    <!-- ========== 存储过程调用 ========== -->
+    
+    <!-- 批量考勤录入（调用存储过程 sp_batch_attendance） -->
+    <select id="callBatchAttendance" statementType="CALLABLE">
+        {CALL sp_batch_attendance(
+            #{dto.deptId, mode=IN, jdbcType=INTEGER},
+            #{dto.workDate, mode=IN, jdbcType=DATE},
+            #{dto.type, mode=IN, jdbcType=VARCHAR},
+            #{dto.affectedRows, mode=OUT, jdbcType=INTEGER}
+        )}
+    </select>
+    
+    <!-- 部门考勤汇总（调用存储过程 sp_dept_attendance_summary） -->
+    <select id="callDeptAttendanceSummary" statementType="CALLABLE" resultType="java.util.HashMap">
+        {CALL sp_dept_attendance_summary(
+            #{deptId, mode=IN, jdbcType=INTEGER},
+            #{month, mode=IN, jdbcType=VARCHAR}
+        )}
+    </select>
+    
+</mapper>
+

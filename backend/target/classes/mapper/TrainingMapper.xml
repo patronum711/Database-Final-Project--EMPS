@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.TrainingMapper">
+    
+    <!-- 课程结果映射 -->
+    <resultMap id="TrainingCourseResultMap" type="com.epms.entity.TrainingCourse">
+        <id property="courseId" column="course_id"/>
+        <result property="courseName" column="course_name"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="location" column="location"/>
+        <result property="trainer" column="trainer"/>
+    </resultMap>
+    
+    <!-- 培训记录视图结果映射 -->
+    <resultMap id="TrainingRecordVOResultMap" type="com.epms.vo.TrainingRecordVO">
+        <result property="empId" column="emp_id"/>
+        <result property="empName" column="emp_name"/>
+        <result property="courseId" column="course_id"/>
+        <result property="courseName" column="course_name"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="location" column="location"/>
+        <result property="trainer" column="trainer"/>
+        <result property="score" column="score"/>
+        <result property="isCompleted" column="is_completed"/>
+    </resultMap>
+    
+    <!-- ========== 课程管理 ========== -->
+    
+    <select id="selectAllCourses" resultMap="TrainingCourseResultMap">
+        SELECT * FROM training_course
+        ORDER BY start_time DESC, course_id DESC
+    </select>
+    
+    <select id="selectCourseById" resultMap="TrainingCourseResultMap">
+        SELECT * FROM training_course
+        WHERE course_id = #{courseId}
+    </select>
+    
+    <insert id="insertCourse" useGeneratedKeys="true" keyProperty="courseId">
+        INSERT INTO training_course (course_name, start_time, end_time, location, trainer)
+        VALUES (#{courseName}, #{startTime}, #{endTime}, #{location}, #{trainer})
+    </insert>
+    
+    <update id="updateCourse">
+        UPDATE training_course
+        <set>
+            <if test="courseName != null">course_name = #{courseName},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="location != null">location = #{location},</if>
+            <if test="trainer != null">trainer = #{trainer},</if>
+        </set>
+        WHERE course_id = #{courseId}
+    </update>
+    
+    <delete id="deleteCourse">
+        DELETE FROM training_course WHERE course_id = #{courseId}
+    </delete>
+    
+    <!-- ========== 培训记录管理 ========== -->
+    
+    <select id="selectAllTrainingRecords" resultMap="TrainingRecordVOResultMap">
+        SELECT 
+            etr.emp_id, e.name as emp_name,
+            etr.course_id, tc.course_name, tc.start_time, tc.end_time, tc.location, tc.trainer,
+            etr.score, etr.is_completed
+        FROM emp_training_relation etr
+        LEFT JOIN employee e ON etr.emp_id = e.emp_id
+        LEFT JOIN training_course tc ON etr.course_id = tc.course_id
+        ORDER BY tc.start_time DESC, etr.emp_id DESC
+    </select>
+    
+    <select id="selectTrainingRecordsByEmployeeId" resultMap="TrainingRecordVOResultMap">
+        SELECT 
+            etr.emp_id, e.name as emp_name,
+            etr.course_id, tc.course_name, tc.start_time, tc.end_time, tc.location, tc.trainer,
+            etr.score, etr.is_completed
+        FROM emp_training_relation etr
+        LEFT JOIN employee e ON etr.emp_id = e.emp_id
+        LEFT JOIN training_course tc ON etr.course_id = tc.course_id
+        WHERE etr.emp_id = #{empId}
+        ORDER BY tc.start_time DESC
+    </select>
+    
+    <select id="selectTrainingRecord" resultMap="TrainingRecordVOResultMap">
+        SELECT 
+            etr.emp_id, e.name as emp_name,
+            etr.course_id, tc.course_name, tc.start_time, tc.end_time, tc.location, tc.trainer,
+            etr.score, etr.is_completed
+        FROM emp_training_relation etr
+        LEFT JOIN employee e ON etr.emp_id = e.emp_id
+        LEFT JOIN training_course tc ON etr.course_id = tc.course_id
+        WHERE etr.emp_id = #{empId} AND etr.course_id = #{courseId}
+    </select>
+    
+    <insert id="insertTrainingRecord">
+        INSERT INTO emp_training_relation (emp_id, course_id, score, is_completed)
+        VALUES (#{empId}, #{courseId}, #{score}, #{isCompleted})
+    </insert>
+    
+    <update id="updateTrainingRecord">
+        UPDATE emp_training_relation
+        <set>
+            <if test="score != null">score = #{score},</if>
+            <if test="isCompleted != null">is_completed = #{isCompleted},</if>
+        </set>
+        WHERE emp_id = #{empId} AND course_id = #{courseId}
+    </update>
+    
+    <delete id="deleteTrainingRecord">
+        DELETE FROM emp_training_relation 
+        WHERE emp_id = #{empId} AND course_id = #{courseId}
+    </delete>
+    
+</mapper>
+

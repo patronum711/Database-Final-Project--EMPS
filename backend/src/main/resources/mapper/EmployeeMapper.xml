@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.EmployeeMapper">
+    
+    <resultMap id="EmployeeVOResultMap" type="com.epms.vo.EmployeeVO">
+        <id property="empId" column="emp_id"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="posId" column="pos_id"/>
+        <result property="name" column="name"/>
+        <result property="gender" column="gender"/>
+        <result property="idCard" column="id_card"/>
+        <result property="safeIdCard" column="safe_id_card"/>
+        <result property="phone" column="phone"/>
+        <result property="politicsStatus" column="politics_status"/>
+        <result property="hukouType" column="hukou_type"/>
+        <result property="hireDate" column="hire_date"/>
+        <result property="status" column="status"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="posName" column="pos_name"/>
+    </resultMap>
+    
+    <resultMap id="EmployeeComprehensiveVOResultMap" type="com.epms.vo.EmployeeComprehensiveVO">
+        <id property="empId" column="emp_id"/>
+        <result property="name" column="name"/>
+        <result property="gender" column="gender"/>
+        <result property="phone" column="phone"/>
+        <result property="hireDate" column="hire_date"/>
+        <result property="status" column="status"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="posName" column="pos_name"/>
+        <result property="baseSalary" column="base_salary"/>
+        <result property="level" column="level"/>
+        <result property="workMonths" column="work_months"/>
+        <result property="workYears" column="work_years"/>
+        <result property="contractCount" column="contract_count"/>
+        <result property="currentContractEnd" column="current_contract_end"/>
+        <result property="recentAttendanceCount" column="recent_attendance_count"/>
+        <result property="trainingCount" column="training_count"/>
+        <result property="completedTrainingCount" column="completed_training_count"/>
+    </resultMap>
+    
+    <!-- 查询所有员工 -->
+    <select id="selectAll" resultMap="EmployeeVOResultMap">
+        SELECT 
+            e.emp_id, e.dept_id, e.pos_id, e.name, e.gender, e.id_card,
+            e.phone, e.politics_status, e.hukou_type, e.hire_date, e.status,
+            d.dept_name, p.pos_name
+        FROM employee e
+        LEFT JOIN department d ON e.dept_id = d.dept_id
+        LEFT JOIN position p ON e.pos_id = p.pos_id
+        ORDER BY e.emp_id
+    </select>
+    
+    <!-- 根据ID查询员工 -->
+    <select id="selectById" resultMap="EmployeeVOResultMap">
+        SELECT 
+            e.emp_id, e.dept_id, e.pos_id, e.name, e.gender, e.id_card,
+            e.phone, e.politics_status, e.hukou_type, e.hire_date, e.status,
+            d.dept_name, p.pos_name
+        FROM employee e
+        LEFT JOIN department d ON e.dept_id = d.dept_id
+        LEFT JOIN position p ON e.pos_id = p.pos_id
+        WHERE e.emp_id = #{empId}
+    </select>
+    
+    <!-- 插入员工 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="empId">
+        INSERT INTO employee (
+            dept_id, pos_id, name, gender, id_card, phone,
+            politics_status, hukou_type, hire_date, status
+        ) VALUES (
+            #{deptId}, #{posId}, #{name}, #{gender}, #{idCard}, #{phone},
+            #{politicsStatus}, #{hukouType}, #{hireDate}, #{status}
+        )
+    </insert>
+    
+    <!-- 更新员工 -->
+    <update id="update">
+        UPDATE employee
+        <set>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="posId != null">pos_id = #{posId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="politicsStatus != null">politics_status = #{politicsStatus},</if>
+            <if test="hukouType != null">hukou_type = #{hukouType},</if>
+            <if test="hireDate != null">hire_date = #{hireDate},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE emp_id = #{empId}
+    </update>
+    
+    <!-- 删除员工 -->
+    <delete id="delete">
+        DELETE FROM employee WHERE emp_id = #{empId}
+    </delete>
+    
+    <!-- ========== 视图查询 ========== -->
+    
+    <!-- 查询安全视图（使用 v_emp_safe_profile，身份证脱敏） -->
+    <select id="selectSafeProfile" resultMap="EmployeeVOResultMap">
+        SELECT 
+            emp_id, dept_id, pos_id, name, gender, phone, hire_date, status,
+            dept_name, pos_name, safe_id_card
+        FROM v_emp_safe_profile
+        ORDER BY emp_id
+    </select>
+    
+    <!-- 查询综合信息（使用 v_employee_comprehensive） -->
+    <select id="selectComprehensive" resultMap="EmployeeComprehensiveVOResultMap">
+        SELECT 
+            emp_id, name, gender, phone, hire_date, status,
+            dept_name, pos_name, base_salary, level,
+            work_months, work_years,
+            contract_count, current_contract_end,
+            recent_attendance_count,
+            training_count, completed_training_count
+        FROM v_employee_comprehensive
+        ORDER BY emp_id
+    </select>
+    
+    <!-- 根据ID查询综合信息 -->
+    <select id="selectComprehensiveById" resultMap="EmployeeComprehensiveVOResultMap">
+        SELECT 
+            emp_id, name, gender, phone, hire_date, status,
+            dept_name, pos_name, base_salary, level,
+            work_months, work_years,
+            contract_count, current_contract_end,
+            recent_attendance_count,
+            training_count, completed_training_count
+        FROM v_employee_comprehensive
+        WHERE emp_id = #{empId}
+    </select>
+    
+    <!-- ========== 存储过程调用 ========== -->
+    
+    <!-- 员工转正（调用存储过程 sp_employee_confirmation） -->
+    <select id="callEmployeeConfirmation" statementType="CALLABLE">
+        {CALL sp_employee_confirmation(#{dto.empId, mode=IN, jdbcType=INTEGER}, 
+                                       #{dto.result, mode=OUT, jdbcType=VARCHAR})}
+    </select>
+    
+    <!-- 查询员工绩效（调用存储过程 sp_employee_performance） -->
+    <select id="callEmployeePerformance" statementType="CALLABLE" resultType="com.epms.dto.EmployeePerformanceDTO">
+        {CALL sp_employee_performance(#{empId, mode=IN, jdbcType=INTEGER},
+                                      #{month, mode=IN, jdbcType=VARCHAR})}
+    </select>
+    
+</mapper>
+

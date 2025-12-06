@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.ContractMapper">
+    
+    <resultMap id="ContractVOResultMap" type="com.epms.vo.ContractVO">
+        <id property="contractId" column="contract_id"/>
+        <result property="empId" column="emp_id"/>
+        <result property="empName" column="emp_name"/>
+        <result property="type" column="type"/>
+        <result property="startDate" column="start_date"/>
+        <result property="endDate" column="end_date"/>
+        <result property="status" column="status"/>
+    </resultMap>
+    
+    <resultMap id="ContractExpiringVOResultMap" type="com.epms.vo.ContractExpiringVO">
+        <result property="contractId" column="contract_id"/>
+        <result property="empId" column="emp_id"/>
+        <result property="empName" column="emp_name"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="posName" column="pos_name"/>
+        <result property="contractType" column="contract_type"/>
+        <result property="startDate" column="start_date"/>
+        <result property="endDate" column="end_date"/>
+        <result property="daysRemaining" column="days_remaining"/>
+        <result property="alertLevel" column="alert_level"/>
+    </resultMap>
+    
+    <!-- 查询所有合同 -->
+    <select id="selectAll" resultMap="ContractVOResultMap">
+        SELECT 
+            c.contract_id, c.emp_id, c.type, c.start_date, c.end_date, c.status,
+            e.name as emp_name
+        FROM contract c
+        LEFT JOIN employee e ON c.emp_id = e.emp_id
+        ORDER BY c.contract_id DESC
+    </select>
+    
+    <!-- 根据ID查询合同 -->
+    <select id="selectById" resultMap="ContractVOResultMap">
+        SELECT 
+            c.contract_id, c.emp_id, c.type, c.start_date, c.end_date, c.status,
+            e.name as emp_name
+        FROM contract c
+        LEFT JOIN employee e ON c.emp_id = e.emp_id
+        WHERE c.contract_id = #{contractId}
+    </select>
+    
+    <!-- 插入合同 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="contractId">
+        INSERT INTO contract (emp_id, type, start_date, end_date, status)
+        VALUES (#{empId}, #{type}, #{startDate}, #{endDate}, #{status})
+    </insert>
+    
+    <!-- 更新合同 -->
+    <update id="update">
+        UPDATE contract
+        <set>
+            <if test="empId != null">emp_id = #{empId},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE contract_id = #{contractId}
+    </update>
+    
+    <!-- 删除合同 -->
+    <delete id="delete">
+        DELETE FROM contract WHERE contract_id = #{contractId}
+    </delete>
+    
+    <!-- ========== 视图查询 ========== -->
+    
+    <!-- 查询即将到期合同（使用视图 v_contract_expiring_soon） -->
+    <select id="selectExpiringContracts" resultMap="ContractExpiringVOResultMap">
+        SELECT 
+            contract_id, emp_id, emp_name, dept_name, pos_name,
+            contract_type, start_date, end_date, days_remaining, alert_level
+        FROM v_contract_expiring_soon
+        ORDER BY days_remaining
+    </select>
+    
+</mapper>
+

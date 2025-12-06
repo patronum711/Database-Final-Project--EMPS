@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.DepartmentMapper">
+    
+    <resultMap id="DepartmentResultMap" type="com.epms.entity.Department">
+        <id property="deptId" column="dept_id"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="location" column="location"/>
+    </resultMap>
+    
+    <resultMap id="DepartmentStatsVOResultMap" type="com.epms.vo.DepartmentStatsVO">
+        <result property="deptId" column="dept_id"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="location" column="location"/>
+        <result property="totalEmployees" column="total_employees"/>
+        <result property="activeEmployees" column="active_employees"/>
+        <result property="probationEmployees" column="probation_employees"/>
+        <result property="resignedEmployees" column="resigned_employees"/>
+        <result property="avgDeptSalary" column="avg_dept_salary"/>
+        <result property="maxDeptSalary" column="max_dept_salary"/>
+        <result property="minDeptSalary" column="min_dept_salary"/>
+    </resultMap>
+    
+    <!-- 查询所有部门 -->
+    <select id="selectAll" resultMap="DepartmentResultMap">
+        SELECT dept_id, dept_name, location
+        FROM department
+        ORDER BY dept_id
+    </select>
+    
+    <!-- 根据ID查询部门 -->
+    <select id="selectById" resultMap="DepartmentResultMap">
+        SELECT dept_id, dept_name, location
+        FROM department
+        WHERE dept_id = #{deptId}
+    </select>
+    
+    <!-- 插入部门 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="deptId">
+        INSERT INTO department (dept_name, location)
+        VALUES (#{deptName}, #{location})
+    </insert>
+    
+    <!-- 更新部门 -->
+    <update id="update">
+        UPDATE department
+        <set>
+            <if test="deptName != null">dept_name = #{deptName},</if>
+            <if test="location != null">location = #{location},</if>
+        </set>
+        WHERE dept_id = #{deptId}
+    </update>
+    
+    <!-- 删除部门 -->
+    <delete id="delete">
+        DELETE FROM department WHERE dept_id = #{deptId}
+    </delete>
+    
+    <!-- ========== 视图查询 ========== -->
+    
+    <!-- 查询部门统计（使用视图 v_dept_employee_stats） -->
+    <select id="selectDepartmentStats" resultMap="DepartmentStatsVOResultMap">
+        SELECT 
+            dept_id, dept_name, location,
+            total_employees, active_employees, probation_employees, resigned_employees,
+            avg_dept_salary, max_dept_salary, min_dept_salary
+        FROM v_dept_employee_stats
+        ORDER BY dept_id
+    </select>
+    
+    <!-- ========== 函数调用 ========== -->
+    
+    <!-- 查询部门平均工资（使用函数 fn_dept_avg_salary） -->
+    <select id="selectAvgSalary" resultType="java.math.BigDecimal">
+        SELECT fn_dept_avg_salary(#{deptId})
+    </select>
+    
+</mapper>
+

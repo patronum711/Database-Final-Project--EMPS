@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.RewardPunishMapper">
+    
+    <resultMap id="RewardPunishVOResultMap" type="com.epms.vo.RewardPunishVO">
+        <id property="rpId" column="rp_id"/>
+        <result property="empId" column="emp_id"/>
+        <result property="empName" column="emp_name"/>
+        <result property="type" column="type"/>
+        <result property="amount" column="amount"/>
+        <result property="eventDate" column="event_date"/>
+        <result property="reason" column="reason"/>
+    </resultMap>
+    
+    <select id="selectAll" resultMap="RewardPunishVOResultMap">
+        SELECT 
+            rp.rp_id, rp.emp_id, rp.type, rp.amount, rp.event_date, rp.reason,
+            e.name as emp_name
+        FROM reward_punish rp
+        LEFT JOIN employee e ON rp.emp_id = e.emp_id
+        ORDER BY rp.event_date DESC, rp.rp_id DESC
+    </select>
+    
+    <select id="selectById" resultMap="RewardPunishVOResultMap">
+        SELECT 
+            rp.rp_id, rp.emp_id, rp.type, rp.amount, rp.event_date, rp.reason,
+            e.name as emp_name
+        FROM reward_punish rp
+        LEFT JOIN employee e ON rp.emp_id = e.emp_id
+        WHERE rp.rp_id = #{rpId}
+    </select>
+    
+    <select id="selectByEmployeeId" resultMap="RewardPunishVOResultMap">
+        SELECT 
+            rp.rp_id, rp.emp_id, rp.type, rp.amount, rp.event_date, rp.reason,
+            e.name as emp_name
+        FROM reward_punish rp
+        LEFT JOIN employee e ON rp.emp_id = e.emp_id
+        WHERE rp.emp_id = #{empId}
+        ORDER BY rp.event_date DESC, rp.rp_id DESC
+    </select>
+    
+    <insert id="insert" useGeneratedKeys="true" keyProperty="rpId">
+        INSERT INTO reward_punish (emp_id, type, amount, event_date, reason)
+        VALUES (#{empId}, #{type}, #{amount}, #{eventDate}, #{reason})
+    </insert>
+    
+    <update id="update">
+        UPDATE reward_punish
+        <set>
+            <if test="empId != null">emp_id = #{empId},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="eventDate != null">event_date = #{eventDate},</if>
+            <if test="reason != null">reason = #{reason},</if>
+        </set>
+        WHERE rp_id = #{rpId}
+    </update>
+    
+    <delete id="delete">
+        DELETE FROM reward_punish WHERE rp_id = #{rpId}
+    </delete>
+    
+</mapper>
+

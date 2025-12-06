@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.epms.mapper.PositionMapper">
+    
+    <resultMap id="PositionResultMap" type="com.epms.entity.Position">
+        <id property="posId" column="pos_id"/>
+        <result property="posName" column="pos_name"/>
+        <result property="baseSalary" column="base_salary"/>
+        <result property="level" column="level"/>
+    </resultMap>
+    
+    <select id="selectAll" resultMap="PositionResultMap">
+        SELECT pos_id, pos_name, base_salary, level
+        FROM position
+        ORDER BY pos_id
+    </select>
+    
+    <select id="selectById" resultMap="PositionResultMap">
+        SELECT pos_id, pos_name, base_salary, level
+        FROM position
+        WHERE pos_id = #{posId}
+    </select>
+    
+    <insert id="insert" useGeneratedKeys="true" keyProperty="posId">
+        INSERT INTO position (pos_name, base_salary, level)
+        VALUES (#{posName}, #{baseSalary}, #{level})
+    </insert>
+    
+    <update id="update">
+        UPDATE position
+        <set>
+            <if test="posName != null">pos_name = #{posName},</if>
+            <if test="baseSalary != null">base_salary = #{baseSalary},</if>
+            <if test="level != null">level = #{level},</if>
+        </set>
+        WHERE pos_id = #{posId}
+    </update>
+    
+    <delete id="delete">
+        DELETE FROM position WHERE pos_id = #{posId}
+    </delete>
+    
+</mapper>
+
