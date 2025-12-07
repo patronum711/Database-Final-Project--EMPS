@@ -20,8 +20,11 @@ function PrivateRoute({ children }) {
 }
 
 function App() {
+  // 生产环境部署在子路径 /epms 下
+  const basename = import.meta.env.PROD ? '/epms' : '';
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route

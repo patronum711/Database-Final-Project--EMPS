@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // 配置axios基础URL（根据实际后端地址修改）
-const API_BASE_URL = 'http://localhost:8080/api';
+// 生产环境使用相对路径，开发环境使用完整URL
+const API_BASE_URL = import.meta.env.PROD 
+  ? '/epms/api'  // 生产环境：使用相对路径，nginx会代理到后端
+  : 'http://localhost:8080/api';  // 开发环境：直连后端
 
 // 工具函数：将下划线命名转换为驼峰命名（用于发送请求）
 function toCamelCase(obj) {
@@ -143,7 +146,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('demo-mode');
-      window.location.href = '/login';
+      // 使用相对路径，适配子路径部署
+      const basePath = import.meta.env.PROD ? '/epms' : '';
+      window.location.href = `${basePath}/login`;
     }
     return Promise.reject(error);
   }

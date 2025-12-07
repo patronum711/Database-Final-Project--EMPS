@@ -1,10 +1,3 @@
--- ============================================================
--- EPMS 数据库演示数据脚本
--- 说明：生成全面但精简的演示数据，完整体现数据库设计
--- 执行前请确保已执行 database/init.sql 创建表结构
--- 更新日期：2025年12月6日 - 所有日期已更新到2025年
--- ============================================================
-
 USE epms_final_db;
 
 SET FOREIGN_KEY_CHECKS = 0; -- 临时关闭外键检查
@@ -12,8 +5,6 @@ SET FOREIGN_KEY_CHECKS = 0; -- 临时关闭外键检查
 -- ============================================================
 -- 清理原有数据（按外键依赖顺序删除）
 -- ============================================================
--- 注意：这会删除所有数据，请谨慎使用！
--- 如果只想清空部分数据，可以注释掉不需要清空的表
 
 -- 删除有外键依赖的表（先删除子表）
 TRUNCATE TABLE emp_training_relation;
@@ -54,11 +45,11 @@ INSERT INTO sys_user (username, password, role, related_emp_id) VALUES
 -- 2. 部门表 (department) - 5个部门
 -- ============================================================
 INSERT INTO department (dept_name, location) VALUES
-('技术部', '北京市海淀区中关村大街1号'),
-('销售部', '北京市朝阳区建国路88号'),
-('人事部', '北京市西城区金融街2号'),
-('财务部', '北京市东城区王府井大街10号'),
-('市场部', '北京市海淀区中关村大街5号');
+('技术部', '计算机学院'),
+('销售部', '慎思园'),
+('人事部', 'GOGO新天地'),
+('财务部', '学五饭堂'),
+('市场部', '图书馆');
 
 -- ============================================================
 -- 3. 职位表 (position) - 10个职位，覆盖所有部门
@@ -352,7 +343,7 @@ INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_p
 (12, '晋升', '财务部', '财务部', '财务专员', '财务经理', '2022-01-10 09:00:00', '晋升为财务经理');
 
 -- ============================================================
--- 11. 更新系统用户关联员工（可选）
+-- 11. 更新系统用户关联员工
 -- ============================================================
 -- 将部分系统用户关联到员工
 UPDATE sys_user SET related_emp_id = 10 WHERE username = 'hr001';
@@ -387,27 +378,5 @@ SELECT CONCAT('  - 未完成: ', COUNT(*)) AS info FROM emp_training_relation WH
 SELECT CONCAT('人事变动: ', COUNT(*)) AS info FROM job_change;
 SELECT CONCAT('系统用户: ', COUNT(*)) AS info FROM sys_user;
 
--- ============================================================
--- 验证视图和函数（可选测试）
--- ============================================================
--- 测试视图
--- SELECT * FROM v_emp_safe_profile LIMIT 5;
--- SELECT * FROM v_dept_employee_stats;
--- SELECT * FROM v_contract_expiring_soon;
--- SELECT * FROM v_attendance_monthly_stats WHERE month = '2025-12';
--- SELECT * FROM v_employee_comprehensive LIMIT 5;
-
--- 测试函数
--- SELECT emp_id, name, fn_calc_work_years(emp_id) AS work_years FROM employee LIMIT 5;
--- SELECT emp_id, name, fn_get_employee_grade(emp_id) AS grade FROM employee LIMIT 5;
--- SELECT dept_id, dept_name, fn_dept_avg_salary(dept_id) AS avg_salary FROM department;
-
--- 测试存储过程
--- CALL sp_employee_confirmation(3, @result); SELECT @result;
--- CALL sp_calc_monthly_salary('2025-12');
--- CALL sp_dept_attendance_summary(1, '2025-12');
--- CALL sp_employee_performance(1, '2025-12');
-
 SELECT '=== 演示数据生成完成！===' AS message;
-SELECT '=== 提示：现在是2025年12月6日，首页将显示即将到期的合同 ===' AS tip;
 

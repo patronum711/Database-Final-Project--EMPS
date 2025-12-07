@@ -1,24 +1,21 @@
--- ============================================================
 -- 1. 环境初始化 & 数据库创建
--- ============================================================
+
 DROP DATABASE IF EXISTS epms_final_db;
 CREATE DATABASE epms_final_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE epms_final_db;
 
 SET FOREIGN_KEY_CHECKS = 0; -- 临时关闭外键检查
 
--- ============================================================
--- 2. 数据表定义 (DDL) - 含索引优化
--- ============================================================
+-- 2. 数据表（12个）
 
--- [基础表] 部门信息
+-- 数据表1: 部门信息
 CREATE TABLE department (
                             dept_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '部门编号',
                             dept_name VARCHAR(50) NOT NULL UNIQUE COMMENT '部门名称',
                             location VARCHAR(100) COMMENT '地址'
 ) ENGINE=InnoDB COMMENT='部门表';
 
--- [基础表] 职位信息 (含薪资基准)
+-- 数据表2: 职位信息
 CREATE TABLE position (
                           pos_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '职位编号',
                           pos_name VARCHAR(50) NOT NULL UNIQUE COMMENT '职位名称',
@@ -26,7 +23,7 @@ CREATE TABLE position (
                           level VARCHAR(20) COMMENT '职级'
 ) ENGINE=InnoDB COMMENT='职位表';
 
--- [核心表] 员工档案 (功能①)
+-- 数据表3: 员工档案
 CREATE TABLE employee (
                           emp_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '员工工号',
                           dept_id INT COMMENT '所属部门',
@@ -46,7 +43,7 @@ CREATE TABLE employee (
                           CONSTRAINT fk_emp_pos FOREIGN KEY (pos_id) REFERENCES position (pos_id) ON DELETE SET NULL
 ) ENGINE=InnoDB COMMENT='员工档案主表';
 
--- [功能①] 合同管理
+-- 数据表4: 合同管理
 CREATE TABLE contract (
                           contract_id INT AUTO_INCREMENT PRIMARY KEY,
                           emp_id INT NOT NULL,
@@ -60,7 +57,7 @@ CREATE TABLE contract (
                           CONSTRAINT fk_contract_emp FOREIGN KEY (emp_id) REFERENCES employee (emp_id) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='合同信息表';
 
--- [功能②] 考勤管理
+-- 数据表5: 考勤管理
 CREATE TABLE attendance (
                             record_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                             emp_id INT NOT NULL,
@@ -74,7 +71,7 @@ CREATE TABLE attendance (
                             CONSTRAINT fk_att_emp FOREIGN KEY (emp_id) REFERENCES employee (emp_id) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='考勤记录表';
 
--- [功能④] 考核奖惩
+-- 数据表6: 考核奖惩
 CREATE TABLE reward_punish (
                                rp_id INT AUTO_INCREMENT PRIMARY KEY,
                                emp_id INT NOT NULL,
@@ -88,7 +85,7 @@ CREATE TABLE reward_punish (
                                CONSTRAINT fk_rp_emp FOREIGN KEY (emp_id) REFERENCES employee (emp_id) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='奖惩记录表';
 
--- [功能③] 人事变动 (历史记录表)
+-- 数据表7: 人事变动
 CREATE TABLE job_change (
                             change_id INT AUTO_INCREMENT PRIMARY KEY,
                             emp_id INT NOT NULL,
@@ -105,7 +102,7 @@ CREATE TABLE job_change (
                             CONSTRAINT fk_jc_emp FOREIGN KEY (emp_id) REFERENCES employee (emp_id) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='人事变动日志表';
 
--- [功能⑤] 员工培训 - 课程表
+-- 数据表8: 课程表
 CREATE TABLE training_course (
                                  course_id INT AUTO_INCREMENT PRIMARY KEY,
                                  course_name VARCHAR(100) NOT NULL,
@@ -115,7 +112,7 @@ CREATE TABLE training_course (
                                  trainer VARCHAR(50)
 ) ENGINE=InnoDB COMMENT='培训课程表';
 
--- [功能⑤] 员工培训 - 关联表 (M:N关系)
+-- 数据表9: 员工培训关联表
 CREATE TABLE emp_training_relation (
                                        emp_id INT NOT NULL,
                                        course_id INT NOT NULL,
@@ -126,7 +123,7 @@ CREATE TABLE emp_training_relation (
                                        CONSTRAINT fk_etr_course FOREIGN KEY (course_id) REFERENCES training_course (course_id) ON DELETE CASCADE
 ) ENGINE=InnoDB COMMENT='培训记录中间表';
 
--- [功能⑥] 系统维护
+-- 数据表10: 系统用户
 CREATE TABLE sys_user (
                           user_id INT AUTO_INCREMENT PRIMARY KEY,
                           username VARCHAR(50) NOT NULL UNIQUE,
@@ -136,14 +133,36 @@ CREATE TABLE sys_user (
                           CONSTRAINT fk_sys_emp FOREIGN KEY (related_emp_id) REFERENCES employee (emp_id) ON DELETE SET NULL
 ) ENGINE=InnoDB COMMENT='系统用户表';
 
+-- 数据表11: 月度考勤汇总表
+CREATE TABLE attendance_monthly_summary (
+    summary_id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_id INT NOT NULL,
+    month VARCHAR(7) NOT NULL,
+    normal_days INT DEFAULT 0,
+    late_days INT DEFAULT 0,
+    absence_days INT DEFAULT 0,
+    total_hours DECIMAL(6,1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_emp_month (emp_id, month),
+    CONSTRAINT fk_summary_emp FOREIGN KEY (emp_id) REFERENCES employee (emp_id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='月度考勤汇总表';
 
--- ============================================================
--- 3. 数据库理论核心实现 (视图、触发器、存储过程)
--- ============================================================
+-- 数据表12: 工资调整历史表
+CREATE TABLE IF NOT EXISTS salary_adjustment_log (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    pos_id INT NOT NULL,
+    pos_name VARCHAR(50),
+    old_salary DECIMAL(10, 2),
+    new_salary DECIMAL(10, 2),
+    adjustment_rate DECIMAL(5,2) COMMENT '调整幅度%',
+    adjustment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    operator VARCHAR(50),
+    CONSTRAINT fk_sal_log_pos FOREIGN KEY (pos_id) REFERENCES position (pos_id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='工资调整历史表';
 
--- ------------------------------------------------------------
--- 3.1 [视图 View] - 实现数据安全性
--- ------------------------------------------------------------
+-- 3. 视图（5个）
+
+-- 视图1: 员工信息安全视图（身份证脱敏）
 CREATE OR REPLACE VIEW v_emp_safe_profile AS
 SELECT
     e.emp_id,
@@ -161,152 +180,7 @@ FROM employee e
          LEFT JOIN department d ON e.dept_id = d.dept_id
          LEFT JOIN position p ON e.pos_id = p.pos_id;
 
-
--- ------------------------------------------------------------
--- 3.2 [触发器 Trigger] - 实现业务逻辑自动化与审计
--- ------------------------------------------------------------
-DELIMITER //
-DROP TRIGGER IF EXISTS trg_log_entry;
-CREATE TRIGGER trg_log_entry
-    AFTER INSERT ON employee
-    FOR EACH ROW
-BEGIN
-    -- 变量声明
-    DECLARE v_dept_name VARCHAR(50);
-    DECLARE v_pos_name VARCHAR(50);
-
-    -- 1. 获取新员工的部门和职位名称快照
-    SELECT dept_name INTO v_dept_name FROM department WHERE dept_id = NEW.dept_id;
-    SELECT pos_name INTO v_pos_name FROM position WHERE pos_id = NEW.pos_id;
-
-    -- 2. 插入一条“入职”记录到人事变动表
-    -- 入职时，原部门/原职位为空，只有新部门/新职位
-    INSERT INTO job_change (
-        emp_id, change_type,
-        new_dept_name, new_pos_name,
-        change_date, remarks
-    )
-    VALUES (
-               NEW.emp_id, '入职',
-               v_dept_name, v_pos_name,
-               NOW(), '新员工入职办理'
-           );
-END //
-DELIMITER ;
-
-DELIMITER //
-DROP TRIGGER IF EXISTS trg_log_job_change;
-CREATE TRIGGER trg_log_job_change
-    AFTER UPDATE ON employee
-    FOR EACH ROW
-BEGIN
-    -- 变量声明：用于存储名称快照
-    DECLARE v_old_dept VARCHAR(50);
-    DECLARE v_new_dept VARCHAR(50);
-    DECLARE v_old_pos VARCHAR(50);
-    DECLARE v_new_pos VARCHAR(50);
-
-    -- 预先查询部门和职位名称（因为下面多个判断可能都要用到）
-    -- 只有当ID发生变化时才去查数据库，减少性能开销
-    IF OLD.dept_id != NEW.dept_id OR OLD.pos_id != NEW.pos_id THEN
-        SELECT dept_name INTO v_old_dept FROM department WHERE dept_id = OLD.dept_id;
-        SELECT dept_name INTO v_new_dept FROM department WHERE dept_id = NEW.dept_id;
-        SELECT pos_name INTO v_old_pos FROM position WHERE pos_id = OLD.pos_id;
-        SELECT pos_name INTO v_new_pos FROM position WHERE pos_id = NEW.pos_id;
-    ELSE
-        -- 如果ID没变，名称沿用旧的（为了记录完整性，防止插入NULL）
-        -- 这里其实也可以再次查询，或者留空。为了报表好看，建议补全。
-        SELECT dept_name INTO v_old_dept FROM department WHERE dept_id = OLD.dept_id;
-        SET v_new_dept = v_old_dept;
-        SELECT pos_name INTO v_old_pos FROM position WHERE pos_id = OLD.pos_id;
-        SET v_new_pos = v_old_pos;
-    END IF;
-
-    -- ==========================================================
-    -- 逻辑分支 A: 状态变更类 (转正、离职)
-    -- ==========================================================
-
-    -- 场景1: 转正 (试用期 -> 在职)
-    IF OLD.status = '试用期' AND NEW.status = '在职' THEN
-        INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
-        VALUES (NEW.emp_id, '转正', v_old_dept, v_new_dept, v_old_pos, v_new_pos, NOW(), '试用期通过');
-    END IF;
-
-    -- 场景2: 离职 (非离职 -> 离职)
-    IF OLD.status != '离职' AND NEW.status = '离职' THEN
-        INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
-        VALUES (NEW.emp_id, '离职', v_old_dept, NULL, v_old_pos, NULL, NOW(), '员工离职');
-    END IF;
-
-    -- ==========================================================
-    -- 逻辑分支 B: 岗位/部门变更类 (调动、晋升)
-    -- 注意：如果是离职操作，通常不需要再记录一次调动/晋升，所以加一个状态判断
-    -- ==========================================================
-
-    IF NEW.status != '离职' THEN
-
-        -- 场景3: 调动 (部门 ID 发生变化)
-        -- 规则：员工由一个部门变到另一个部门（无论职位如何变化），都视为调动
-        IF OLD.dept_id != NEW.dept_id THEN
-            INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
-            VALUES (NEW.emp_id, '调动', v_old_dept, v_new_dept, v_old_pos, v_new_pos, NOW(), '跨部门调动');
-
-            -- 场景4: 晋升 (部门不变，但职位 ID 发生变化)
-            -- 规则：部门内同职级对应只有一个职位名称，所以职位变动等同于职级变动
-        ELSEIF OLD.dept_id = NEW.dept_id AND OLD.pos_id != NEW.pos_id THEN
-            INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
-            VALUES (NEW.emp_id, '晋升', v_old_dept, v_new_dept, v_old_pos, v_new_pos, NOW(), '部门内职位调整/晋升');
-        END IF;
-
-    END IF;
-
-END //
-DELIMITER ;
-
-
--- ------------------------------------------------------------
--- 3.3 [存储过程 Stored Procedure] - 复杂业务计算
--- 场景：计算员工月度工资。逻辑：基本工资 + 奖惩总额 - (迟到次数 * 50)
--- ------------------------------------------------------------
-DELIMITER //
-CREATE PROCEDURE sp_calc_monthly_salary(IN p_month VARCHAR(7))
-BEGIN
-    -- 这是一个复杂的汇总查询，体现了数据库处理数据的能力
-    SELECT
-        e.emp_id,
-        e.name,
-        p.base_salary AS '基本工资',
-
-        -- 子查询计算奖惩总额 (COALESCE处理NULL)
-        COALESCE((SELECT SUM(amount) FROM reward_punish rp
-                  WHERE rp.emp_id = e.emp_id AND DATE_FORMAT(rp.event_date, '%Y-%m') = p_month), 0) AS '奖惩绩效',
-
-        -- 子查询计算考勤扣款 (假设迟到一次扣50)
-        (SELECT COUNT(*) FROM attendance a
-         WHERE a.emp_id = e.emp_id AND a.type = '迟到' AND DATE_FORMAT(a.work_date, '%Y-%m') = p_month) * 50.00 AS '考勤扣款',
-
-        -- 计算最终实发
-        (p.base_salary +
-         COALESCE((SELECT SUM(amount) FROM reward_punish rp WHERE rp.emp_id = e.emp_id AND DATE_FORMAT(rp.event_date, '%Y-%m') = p_month), 0) -
-         (SELECT COUNT(*) FROM attendance a WHERE a.emp_id = e.emp_id AND a.type = '迟到' AND DATE_FORMAT(a.work_date, '%Y-%m') = p_month) * 50.00
-            ) AS '实发工资'
-
-    FROM employee e
-             JOIN position p ON e.pos_id = p.pos_id
-    WHERE e.status != '离职';
-END //
-DELIMITER ;
-
-
--- ============================================================
--- 4. 数据库功能增强 - 更多视图、函数、存储过程
--- ============================================================
-
--- ------------------------------------------------------------
--- 4.1 [视图扩展] - 统计分析与业务支持
--- ------------------------------------------------------------
-
--- 视图2: 部门员工统计视图
+-- 视图2: 部门员工统计（统计各部门员工数量、工资等信息）
 CREATE OR REPLACE VIEW v_dept_employee_stats AS
 SELECT 
     d.dept_id,
@@ -324,7 +198,7 @@ LEFT JOIN employee e ON d.dept_id = e.dept_id
 LEFT JOIN position p ON e.pos_id = p.pos_id
 GROUP BY d.dept_id, d.dept_name, d.location;
 
--- 视图3: 合同到期预警视图（30天内）
+-- 视图3: 合同到期预警（30天内将到期的合同）
 CREATE OR REPLACE VIEW v_contract_expiring_soon AS
 SELECT 
     c.contract_id,
@@ -350,7 +224,7 @@ WHERE c.status = '有效'
   AND DATEDIFF(c.end_date, CURDATE()) BETWEEN 0 AND 30
 ORDER BY days_remaining;
 
--- 视图4: 月度考勤异常统计视图
+-- 视图4: 员工月度考勤统计（统计员工每月考勤情况）
 CREATE OR REPLACE VIEW v_attendance_monthly_stats AS
 SELECT 
     e.emp_id,
@@ -373,7 +247,7 @@ WHERE e.status IN ('在职', '试用期')
 GROUP BY e.emp_id, e.name, d.dept_name, month
 HAVING month IS NOT NULL;
 
--- 视图5: 员工综合信息视图（含工资、部门统计）
+-- 视图5: 员工综合信息（包含员工基本信息、合同信息、考勤信息、培训信息等）
 CREATE OR REPLACE VIEW v_employee_comprehensive AS
 SELECT 
     e.emp_id,
@@ -403,83 +277,104 @@ LEFT JOIN department d ON e.dept_id = d.dept_id
 LEFT JOIN position p ON e.pos_id = p.pos_id;
 
 
--- ------------------------------------------------------------
--- 4.2 [自定义函数] - 业务计算封装
--- ------------------------------------------------------------
+-- 4. 触发器（6个）
 
--- 函数1: 计算员工工龄（年）
+-- 触发器1: 入职触发器（员工入职信息自动添加到人事变动表）
 DELIMITER //
-DROP FUNCTION IF EXISTS fn_calc_work_years;
-CREATE FUNCTION fn_calc_work_years(p_emp_id INT)
-RETURNS DECIMAL(5,2)
-DETERMINISTIC
+DROP TRIGGER IF EXISTS trg_log_entry;
+CREATE TRIGGER trg_log_entry
+    AFTER INSERT ON employee
+    FOR EACH ROW
 BEGIN
-    DECLARE hire_dt DATE;
-    DECLARE years DECIMAL(5,2);
-    
-    SELECT hire_date INTO hire_dt FROM employee WHERE emp_id = p_emp_id;
-    
-    IF hire_dt IS NULL THEN
-        RETURN 0;
-    END IF;
-    
-    SET years = TIMESTAMPDIFF(MONTH, hire_dt, CURDATE()) / 12.0;
-    RETURN years;
+    -- 变量声明
+    DECLARE v_dept_name VARCHAR(50);
+    DECLARE v_pos_name VARCHAR(50);
+
+    -- 1. 获取新员工的部门和职位名称快照
+    SELECT dept_name INTO v_dept_name FROM department WHERE dept_id = NEW.dept_id;
+    SELECT pos_name INTO v_pos_name FROM position WHERE pos_id = NEW.pos_id;
+
+    -- 2. 插入一条“入职”记录到人事变动表
+    -- 入职时，原部门/原职位为空，只有新部门/新职位
+    INSERT INTO job_change (
+        emp_id, change_type,
+        new_dept_name, new_pos_name,
+        change_date, remarks
+    )
+    VALUES (
+               NEW.emp_id, '入职',
+               v_dept_name, v_pos_name,
+               NOW(), '新员工入职办理'
+           );
 END //
 DELIMITER ;
 
--- 函数2: 获取员工级别（基于工龄）
+-- 触发器2: 人事变动触发器（员工状态或岗位变更时自动添加到人事变动表）
 DELIMITER //
-DROP FUNCTION IF EXISTS fn_get_employee_grade;
-CREATE FUNCTION fn_get_employee_grade(p_emp_id INT)
-RETURNS VARCHAR(20)
-DETERMINISTIC
+DROP TRIGGER IF EXISTS trg_log_job_change;
+CREATE TRIGGER trg_log_job_change
+    AFTER UPDATE ON employee
+    FOR EACH ROW
 BEGIN
-    DECLARE work_years DECIMAL(5,2);
-    DECLARE grade VARCHAR(20);
-    
-    SET work_years = fn_calc_work_years(p_emp_id);
-    
-    IF work_years < 1 THEN
-        SET grade = '新员工';
-    ELSEIF work_years < 3 THEN
-        SET grade = '初级';
-    ELSEIF work_years < 5 THEN
-        SET grade = '中级';
-    ELSEIF work_years < 10 THEN
-        SET grade = '高级';
+    -- 变量声明：用于存储名称快照
+    DECLARE v_old_dept VARCHAR(50);
+    DECLARE v_new_dept VARCHAR(50);
+    DECLARE v_old_pos VARCHAR(50);
+    DECLARE v_new_pos VARCHAR(50);
+
+    -- 预先查询部门和职位名称（因为下面多个判断可能都要用到）
+    -- 只有当ID发生变化时才去查数据库，减少性能开销
+    IF OLD.dept_id != NEW.dept_id OR OLD.pos_id != NEW.pos_id THEN
+        SELECT dept_name INTO v_old_dept FROM department WHERE dept_id = OLD.dept_id;
+        SELECT dept_name INTO v_new_dept FROM department WHERE dept_id = NEW.dept_id;
+        SELECT pos_name INTO v_old_pos FROM position WHERE pos_id = OLD.pos_id;
+        SELECT pos_name INTO v_new_pos FROM position WHERE pos_id = NEW.pos_id;
     ELSE
-        SET grade = '资深';
+        -- 如果ID没变，名称沿用旧的（为了记录完整性，防止插入NULL）
+        SELECT dept_name INTO v_old_dept FROM department WHERE dept_id = OLD.dept_id;
+        SET v_new_dept = v_old_dept;
+        SELECT pos_name INTO v_old_pos FROM position WHERE pos_id = OLD.pos_id;
+        SET v_new_pos = v_old_pos;
     END IF;
-    
-    RETURN grade;
+
+    -- 逻辑分支 A: 状态变更类 (转正、离职)
+
+    -- 场景1: 转正 (试用期 -> 在职)
+    IF OLD.status = '试用期' AND NEW.status = '在职' THEN
+        INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
+        VALUES (NEW.emp_id, '转正', v_old_dept, v_new_dept, v_old_pos, v_new_pos, NOW(), '试用期通过');
+    END IF;
+
+    -- 场景2: 离职 (非离职 -> 离职)
+    IF OLD.status != '离职' AND NEW.status = '离职' THEN
+        INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
+        VALUES (NEW.emp_id, '离职', v_old_dept, NULL, v_old_pos, NULL, NOW(), '员工离职');
+    END IF;
+
+    -- 逻辑分支 B: 岗位/部门变更类 (调动、晋升)
+    -- 注意：如果是离职操作，通常不需要再记录一次调动/晋升，所以加一个状态判断
+
+    IF NEW.status != '离职' THEN
+
+        -- 场景3: 调动 (部门 ID 发生变化)
+        -- 规则：员工由一个部门变到另一个部门（无论职位如何变化），都视为调动
+        IF OLD.dept_id != NEW.dept_id THEN
+            INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
+            VALUES (NEW.emp_id, '调动', v_old_dept, v_new_dept, v_old_pos, v_new_pos, NOW(), '跨部门调动');
+
+            -- 场景4: 晋升 (部门不变，但职位 ID 发生变化)
+            -- 规则：部门内同职级对应只有一个职位名称，所以职位变动等同于职级变动
+        ELSEIF OLD.dept_id = NEW.dept_id AND OLD.pos_id != NEW.pos_id THEN
+            INSERT INTO job_change (emp_id, change_type, old_dept_name, new_dept_name, old_pos_name, new_pos_name, change_date, remarks)
+            VALUES (NEW.emp_id, '晋升', v_old_dept, v_new_dept, v_old_pos, v_new_pos, NOW(), '部门内职位调整/晋升');
+        END IF;
+
+    END IF;
+
 END //
 DELIMITER ;
 
--- 函数3: 计算部门平均工资
-DELIMITER //
-DROP FUNCTION IF EXISTS fn_dept_avg_salary;
-CREATE FUNCTION fn_dept_avg_salary(p_dept_id INT)
-RETURNS DECIMAL(10,2)
-READS SQL DATA
-BEGIN
-    DECLARE avg_sal DECIMAL(10,2);
-    
-    SELECT AVG(p.base_salary) INTO avg_sal
-    FROM employee e
-    JOIN position p ON e.pos_id = p.pos_id
-    WHERE e.dept_id = p_dept_id AND e.status IN ('在职', '试用期');
-    
-    RETURN IFNULL(avg_sal, 0);
-END //
-DELIMITER ;
-
-
--- ------------------------------------------------------------
--- 4.3 [触发器扩展] - 更多业务自动化
--- ------------------------------------------------------------
-
--- 触发器3: 培训成绩录入自动完成标记
+-- 触发器3: 培训成绩录入自动完成标记（培训成绩>=60分且之前未完成，自动标记为已完成）
 DELIMITER //
 DROP TRIGGER IF EXISTS trg_training_auto_complete;
 CREATE TRIGGER trg_training_auto_complete
@@ -493,7 +388,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- 触发器4: 合同状态自动更新（可通过事件调度器触发）
+-- 触发器4: 合同状态自动更新（合同结束日期必须晚于开始日期）
 DELIMITER //
 DROP TRIGGER IF EXISTS trg_contract_date_check;
 CREATE TRIGGER trg_contract_date_check
@@ -513,7 +408,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- 触发器5: 防止删除有关联数据的核心记录（额外安全检查）
+-- 触发器5: 防止删除有关联数据的核心记录（部门删除时检查是否还有员工）
 DELIMITER //
 DROP TRIGGER IF EXISTS trg_dept_delete_check;
 CREATE TRIGGER trg_dept_delete_check
@@ -530,12 +425,59 @@ BEGIN
 END //
 DELIMITER ;
 
+-- 触发器6: 工资调整触发器（工资调整时自动记录工资调整历史）
+DELIMITER //
+DROP TRIGGER IF EXISTS trg_log_salary_adjustment;
+CREATE TRIGGER trg_log_salary_adjustment
+AFTER UPDATE ON position
+FOR EACH ROW
+BEGIN
+    IF OLD.base_salary != NEW.base_salary THEN
+        INSERT INTO salary_adjustment_log 
+            (pos_id, pos_name, old_salary, new_salary, adjustment_rate)
+        VALUES (
+            NEW.pos_id, 
+            NEW.pos_name,
+            OLD.base_salary, 
+            NEW.base_salary,
+            ROUND((NEW.base_salary - OLD.base_salary) / OLD.base_salary * 100, 2)
+        );
+    END IF;
+END //
+DELIMITER ;
 
--- ------------------------------------------------------------
--- 4.4 [存储过程扩展] - 复杂业务处理
--- ------------------------------------------------------------
+-- 5. 存储过程（5个）
 
--- 存储过程2: 员工转正（包含业务判断）
+-- 存储过程1: 计算员工月度工资（基本工资 + 奖惩总额 - (迟到次数 * 50)）
+DELIMITER //
+CREATE PROCEDURE sp_calc_monthly_salary(IN p_month VARCHAR(7))
+BEGIN
+    SELECT
+        e.emp_id,
+        e.name,
+        p.base_salary AS '基本工资',
+
+        -- 子查询计算奖惩总额 (COALESCE处理NULL)
+        COALESCE((SELECT SUM(amount) FROM reward_punish rp
+                  WHERE rp.emp_id = e.emp_id AND DATE_FORMAT(rp.event_date, '%Y-%m') = p_month), 0) AS '奖惩绩效',
+
+        -- 子查询计算考勤扣款 (假设迟到一次扣50)
+        (SELECT COUNT(*) FROM attendance a
+         WHERE a.emp_id = e.emp_id AND a.type = '迟到' AND DATE_FORMAT(a.work_date, '%Y-%m') = p_month) * 50.00 AS '考勤扣款',
+
+        -- 计算最终实发
+        (p.base_salary +
+         COALESCE((SELECT SUM(amount) FROM reward_punish rp WHERE rp.emp_id = e.emp_id AND DATE_FORMAT(rp.event_date, '%Y-%m') = p_month), 0) -
+         (SELECT COUNT(*) FROM attendance a WHERE a.emp_id = e.emp_id AND a.type = '迟到' AND DATE_FORMAT(a.work_date, '%Y-%m') = p_month) * 50.00
+            ) AS '实发工资'
+
+    FROM employee e
+             JOIN position p ON e.pos_id = p.pos_id
+    WHERE e.status != '离职';
+END //
+DELIMITER ;
+
+-- 存储过程2: 员工转正（员工转正时自动记录转正信息）
 DELIMITER //
 DROP PROCEDURE IF EXISTS sp_employee_confirmation;
 CREATE PROCEDURE sp_employee_confirmation(
@@ -568,7 +510,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- 存储过程3: 批量考勤录入
+-- 存储过程3: 批量考勤录入（批量为某部门的在职员工录入考勤）
 DELIMITER //
 DROP PROCEDURE IF EXISTS sp_batch_attendance;
 CREATE PROCEDURE sp_batch_attendance(
@@ -603,7 +545,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- 存储过程4: 部门月度考勤汇总
+-- 存储过程4: 部门月度考勤汇总（统计各部门员工每月考勤情况）
 DELIMITER //
 DROP PROCEDURE IF EXISTS sp_dept_attendance_summary;
 CREATE PROCEDURE sp_dept_attendance_summary(
@@ -634,7 +576,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- 存储过程5: 员工综合绩效评估
+-- 存储过程5: 员工综合绩效评估（计算员工综合绩效分）
 DELIMITER //
 DROP PROCEDURE IF EXISTS sp_employee_performance;
 CREATE PROCEDURE sp_employee_performance(
@@ -704,15 +646,78 @@ BEGIN
 END //
 DELIMITER ;
 
+-- 6. 自定义函数（3个）
 
--- ------------------------------------------------------------
--- 4.5 [事件调度器] - 自动化任务
--- ------------------------------------------------------------
+-- 函数1: 计算员工工龄（年）
+DELIMITER //
+DROP FUNCTION IF EXISTS fn_calc_work_years;
+CREATE FUNCTION fn_calc_work_years(p_emp_id INT)
+    RETURNS DECIMAL(5,2)
+    DETERMINISTIC
+BEGIN
+    DECLARE hire_dt DATE;
+    DECLARE years DECIMAL(5,2);
 
--- 启用事件调度器
-SET GLOBAL event_scheduler = ON;
+    SELECT hire_date INTO hire_dt FROM employee WHERE emp_id = p_emp_id;
 
--- 事件1: 每天凌晨自动更新过期合同
+    IF hire_dt IS NULL THEN
+        RETURN 0;
+    END IF;
+
+    SET years = TIMESTAMPDIFF(MONTH, hire_dt, CURDATE()) / 12.0;
+    RETURN years;
+END //
+DELIMITER ;
+
+-- 函数2: 获取员工级别（基于工龄）
+DELIMITER //
+DROP FUNCTION IF EXISTS fn_get_employee_grade;
+CREATE FUNCTION fn_get_employee_grade(p_emp_id INT)
+RETURNS VARCHAR(20)
+DETERMINISTIC
+BEGIN
+    DECLARE work_years DECIMAL(5,2);
+    DECLARE grade VARCHAR(20);
+    
+    SET work_years = fn_calc_work_years(p_emp_id);
+    
+    IF work_years < 1 THEN
+        SET grade = '新员工';
+    ELSEIF work_years < 3 THEN
+        SET grade = '初级';
+    ELSEIF work_years < 5 THEN
+        SET grade = '中级';
+    ELSEIF work_years < 10 THEN
+        SET grade = '高级';
+    ELSE
+        SET grade = '资深';
+    END IF;
+    
+    RETURN grade;
+END //
+DELIMITER ;
+
+-- 函数3: 计算部门平均工资
+DELIMITER //
+DROP FUNCTION IF EXISTS fn_dept_avg_salary;
+CREATE FUNCTION fn_dept_avg_salary(p_dept_id INT)
+RETURNS DECIMAL(10,2)
+READS SQL DATA
+BEGIN
+    DECLARE avg_sal DECIMAL(10,2);
+    
+    SELECT AVG(p.base_salary) INTO avg_sal
+    FROM employee e
+    JOIN position p ON e.pos_id = p.pos_id
+    WHERE e.dept_id = p_dept_id AND e.status IN ('在职', '试用期');
+    
+    RETURN IFNULL(avg_sal, 0);
+END //
+DELIMITER ;
+
+-- 7. 事件调度器（2个）
+
+-- 事件1: 每天凌晨自动更新过期合同（自动将过期合同状态更新为'过期'）
 DELIMITER //
 DROP EVENT IF EXISTS evt_update_expired_contracts;
 CREATE EVENT evt_update_expired_contracts
@@ -729,21 +734,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- 事件2: 每月1号生成上月考勤汇总（可选：需要汇总表）
--- 这里创建一个月度考勤汇总表
-CREATE TABLE IF NOT EXISTS attendance_monthly_summary (
-    summary_id INT AUTO_INCREMENT PRIMARY KEY,
-    emp_id INT NOT NULL,
-    month VARCHAR(7) NOT NULL,
-    normal_days INT DEFAULT 0,
-    late_days INT DEFAULT 0,
-    absence_days INT DEFAULT 0,
-    total_hours DECIMAL(6,1) DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_emp_month (emp_id, month),
-    CONSTRAINT fk_summary_emp FOREIGN KEY (emp_id) REFERENCES employee (emp_id) ON DELETE CASCADE
-) ENGINE=InnoDB COMMENT='月度考勤汇总表';
-
+-- 事件2: 每月1号生成上月考勤汇总（自动生成上月考勤汇总数据）
 DELIMITER //
 DROP EVENT IF EXISTS evt_monthly_attendance_summary;
 CREATE EVENT evt_monthly_attendance_summary
@@ -779,78 +770,23 @@ END //
 DELIMITER ;
 
 
--- ------------------------------------------------------------
--- 4.6 [数据完整性约束增强]
--- ------------------------------------------------------------
+-- 8. 数据完整性约束（4个）
 
--- 添加检查约束（MySQL 8.0.16+）
+-- 数据完整性约束1: 身份证号长度检查（身份证号必须是18位）
 ALTER TABLE employee
 ADD CONSTRAINT chk_id_card_length CHECK (CHAR_LENGTH(id_card) = 18);
 
+-- 数据完整性约束2: 奖惩金额合理性检查（奖惩金额在-10000到10000之间）
 ALTER TABLE reward_punish
 ADD CONSTRAINT chk_amount_reasonable CHECK (amount BETWEEN -10000 AND 10000);
 
+-- 数据完整性约束3: 工作时长有效性检查（工作时长在0到24小时之间）
 ALTER TABLE attendance
 ADD CONSTRAINT chk_hours_valid CHECK (hours BETWEEN 0 AND 24);
 
+-- 数据完整性约束4: 培训成绩范围检查（培训成绩在0到100分之间）
 ALTER TABLE emp_training_relation
 ADD CONSTRAINT chk_score_range CHECK (score IS NULL OR (score >= 0 AND score <= 100));
 
-
--- ------------------------------------------------------------
--- 4.7 [其他高级功能示例]
--- ------------------------------------------------------------
-
--- 创建工资调整历史表（配合触发器使用）
-CREATE TABLE IF NOT EXISTS salary_adjustment_log (
-    log_id INT AUTO_INCREMENT PRIMARY KEY,
-    pos_id INT NOT NULL,
-    pos_name VARCHAR(50),
-    old_salary DECIMAL(10, 2),
-    new_salary DECIMAL(10, 2),
-    adjustment_rate DECIMAL(5,2) COMMENT '调整幅度%',
-    adjustment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    operator VARCHAR(50),
-    CONSTRAINT fk_sal_log_pos FOREIGN KEY (pos_id) REFERENCES position (pos_id) ON DELETE CASCADE
-) ENGINE=InnoDB COMMENT='工资调整历史表';
-
--- 工资调整审计触发器
-DELIMITER //
-DROP TRIGGER IF EXISTS trg_log_salary_adjustment;
-CREATE TRIGGER trg_log_salary_adjustment
-AFTER UPDATE ON position
-FOR EACH ROW
-BEGIN
-    IF OLD.base_salary != NEW.base_salary THEN
-        INSERT INTO salary_adjustment_log 
-            (pos_id, pos_name, old_salary, new_salary, adjustment_rate)
-        VALUES (
-            NEW.pos_id, 
-            NEW.pos_name,
-            OLD.base_salary, 
-            NEW.base_salary,
-            ROUND((NEW.base_salary - OLD.base_salary) / OLD.base_salary * 100, 2)
-        );
-    END IF;
-END //
-DELIMITER ;
-
-
--- ============================================================
--- 5. 测试与验证
--- ============================================================
-
--- 查看所有视图
-SHOW FULL TABLES WHERE TABLE_TYPE = 'VIEW';
-
--- 查看所有存储过程和函数
-SHOW PROCEDURE STATUS WHERE Db = 'epms_final_db';
-SHOW FUNCTION STATUS WHERE Db = 'epms_final_db';
-
--- 查看所有触发器
-SHOW TRIGGERS;
-
--- 查看所有事件
-SHOW EVENTS;
 
 SET FOREIGN_KEY_CHECKS = 1; -- 恢复外键检查
